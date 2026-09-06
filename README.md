@@ -145,8 +145,8 @@ This project showcases **advanced game development** using:
 - **Event-Driven Architecture** - Clean component communication via Vue events
 
 ### **3D Graphics & Advanced Physics**
-- **Babylon.js v8.31.0** - Professional 3D rendering engine with WebGL2
-- **Havok Physics** - Realistic car dynamics and collision detection
+- **Babylon.js 9.25.0** (pinned) - Professional 3D rendering engine with WebGL2
+- **Havok Physics 1.3.14** (pinned) - Realistic car dynamics and collision detection; the versions are pinned in `index.html` because Havok 1.3.12 changed the behaviour of angular position motors
 - **ConvexHull Physics** - Complex 3D model collision for custom car shapes
 - **GLB/GLTF Model Loading** - Support for custom 3D car models
 - **Real-time Rendering** - 60fps smooth gameplay with dynamic lighting
