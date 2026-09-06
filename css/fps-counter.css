@@ -1,0 +1,25 @@
+/* fps-counter.css - Frames Per Second Badge */
+
+.fps-counter {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: #34d399;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    user-select: none;
+}
+
+.fps-counter.low {
+    color: #f87171;
+}

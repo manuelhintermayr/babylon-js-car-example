@@ -65,6 +65,7 @@ This project showcases **advanced game development** using:
 - **Performance metrics** (total collisions, race time, maximum speed)
 - **Physics monitoring** (wheel physics, suspension dynamics)
 - **Progress tracking** (knocked boxes counter with physics detection)
+- **FPS counter** badge in the top right corner, averaged over half-second windows
 - **Interactive debug panels** with F12 toggle and auto-hide on mobile
 
 ## 🖥️ Enhanced Cross-Platform Controls
@@ -116,16 +117,19 @@ This project showcases **advanced game development** using:
 ├── 📁 components/            # 🔧 Modular Vue Components
 │   ├── 📄 info-panel.js      # Debug panel with glassmorphism UI
 │   ├── 📄 desktop-controls.js # Enhanced keyboard controls with jump/brake
-│   └── 📄 mobile-controls.js  # Touch controls with joystick & jump
+│   ├── 📄 mobile-controls.js  # Touch controls with joystick & jump
+│   └── 📄 fps-counter.js     # FPS badge
 │
 ├── 📁 css/                   # 🎨 Modular Stylesheets
 │   ├── 📄 main.css           # Core styles, HTML, body, canvas
 │   ├── 📄 info-panel.css     # Debug panel glassmorphism styling
 │   ├── 📄 mobile-controls.css # Virtual joystick & enhanced touch buttons
-│   └── 📄 desktop-controls.css # Key displays with jump/brake indicators
+│   ├── 📄 desktop-controls.css # Key displays with jump/brake indicators
+│   └── 📄 fps-counter.css    # FPS badge styling
 │
 └── 📁 game/                  # 🎮 Advanced Game Engine & Assets
     ├── 📄 babylon-game.js    # Complete Babylon.js game with physics & 3D models
+    ├── 📄 fps-meter.js       # Frames per second, averaged over short windows
     ├── 📁 models/            # 3D Model Assets
     │   └── 📄 car.glb        # Custom 3D car model (GLB format)
     └── 📁 textures/          # Game texture assets

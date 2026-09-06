@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="css/info-panel.css">
     <link rel="stylesheet" href="css/mobile-controls.css">
     <link rel="stylesheet" href="css/desktop-controls.css">
+    <link rel="stylesheet" href="css/fps-counter.css">
 </head>
 
 <body>
@@ -24,6 +25,9 @@
             :collisions="collisions" :knocked-boxes="knockedBoxes" :max-speed="maxSpeed" :race-time="raceTime"
             :is-racing="isRacing" :is-touch-device="isTouchDevice">
         </info-panel>
+
+        <!-- FPS Counter Component -->
+        <fps-counter :fps="fps"></fps-counter>
 
         <!-- Canvas -->
         <canvas id="renderCanvas"></canvas>

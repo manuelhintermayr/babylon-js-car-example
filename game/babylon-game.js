@@ -1,4 +1,5 @@
 // babylon-game.js - Babylon.js Game Logic and Functions
+import { FpsMeter } from './fps-meter.js';
 
 // Global variables for car physics system
 let scene;
@@ -194,6 +195,14 @@ async function createScene(vueApp) {
     addReflectionsToCar();
 
     addGlowLayer();
+
+    // Measure the frame rate for the FPS badge
+    const fpsMeter = new FpsMeter(fps => {
+        if (vueApp) {
+            vueApp.fps = fps;
+        }
+    });
+    scene.onAfterRenderObservable.add(() => fpsMeter.tick());
 
     // Setup physics-based collision detection after car is fully created
     // Add a small delay to ensure physics body is properly initialized
