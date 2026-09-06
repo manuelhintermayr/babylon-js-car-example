@@ -249,7 +249,7 @@ The project uses **ES6 modules** which require a web server (not `file://` proto
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The original source code of this project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. The MIT License covers this repository's own source code; the third-party example code it builds on (Babylon.js Playground demos) and the AI-generated 3D model and textures it uses are documented separately in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## 🙏 Acknowledgments
 
