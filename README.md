@@ -6,6 +6,8 @@ A 3D car racing game built with web technologies (babylon.js), featuring realist
 
 **Play now:** [https://projects.manuelhintermayr.com/babylon-js-car-example](https://projects.manuelhintermayr.com/babylon-js-car-example)
 
+A Three.js + Rapier port of this game runs at [https://projects.manuelhintermayr.com/threejs-car-example](https://projects.manuelhintermayr.com/threejs-car-example) ([repository](https://github.com/manuelhintermayr/threejs-car-example)), so both engines can be compared side by side.
+
 ![Game Preview](preview.jpg)
 
 ## 🚀 Modern Architecture
