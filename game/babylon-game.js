@@ -832,10 +832,17 @@ function CreateWheel(position) {
 function AttachAxleToFrame(axle, frame, hasSteering) {
     const aPos = axle.transformNode.position;
 
+    // Since @babylonjs/havok 1.3.12 angular position motors act in constraint space. Babylon derives the
+    // secondary axis of (1, 0, 0) as (0, -1, 0), which turns the steering motor the wrong way round, so the
+    // secondary axis is set explicitly to world up.
+    const constraintUp = new BABYLON.Vector3(0, 1, 0);
+
     const joint = new BABYLON.Physics6DoFConstraint(
         {
             pivotA: new BABYLON.Vector3(0, 0, 0),
             pivotB: new BABYLON.Vector3(aPos.x, aPos.y, aPos.z),
+            perpAxisA: constraintUp,
+            perpAxisB: constraintUp,
         },
         [
             {
