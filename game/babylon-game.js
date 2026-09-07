@@ -118,6 +118,9 @@ export function resetBoxes(vueApp) {
     }
 }
 
+// Every write to the reactive HUD re-renders it; 20 Hz keeps the readouts smooth without doing that on every frame
+const HUD_UPDATE_INTERVAL_MS = 50;
+
 async function createScene(vueApp) {
     scene = new BABYLON.Scene(engine);
 
@@ -214,10 +217,13 @@ async function createScene(vueApp) {
     const velocity = new BABYLON.Vector3();
     let speed;
     let fCounter = 0;
+    let peakSpeed = 0;
+    let nextHudUpdate = 0;
     scene.onBeforeRenderObservable.add(() => {
         carF.physicsBody.getLinearVelocityToRef(velocity);
         speed = velocity.length();
         if (speed < 1) { speed = 0; }
+        peakSpeed = Math.max(peakSpeed, speed);
 
         // Auto-start race when car starts moving
         if (!raceStarted && speed > 2 && vueApp) {
@@ -228,8 +234,10 @@ async function createScene(vueApp) {
             vueApp.raceTime = 0;
         }
 
-        // Update Vue.js data
-        if (vueApp) {
+        // Update Vue.js data at HUD rate, not on every frame
+        const now = performance.now();
+        if (vueApp && now >= nextHudUpdate) {
+            nextHudUpdate = now + HUD_UPDATE_INTERVAL_MS;
             vueApp.speed = speed; // Convert to km/h
             vueApp.position.x = carF.position.x;
             vueApp.position.y = carF.position.y;
@@ -244,7 +252,7 @@ async function createScene(vueApp) {
             }
             vueApp.rotation = (rotationY * 180 / Math.PI) % 360;
 
-            vueApp.maxSpeed = Math.max(vueApp.maxSpeed, vueApp.speed);
+            vueApp.maxSpeed = Math.max(vueApp.maxSpeed, peakSpeed);
 
             // Update race time
             if (vueApp.isRacing && raceStarted && !alreadyTriggered && fCounter < 1) {
