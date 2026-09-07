@@ -17,6 +17,7 @@ export const DesktopControls = {
                 d: false,
                 space: false, // Now for jumping
                 b: false,     // New brake key
+                c: false,     // Camera view toggle
                 enter: false
             }
         }
@@ -78,6 +79,9 @@ export const DesktopControls = {
                 case 'b':
                     this.keyStates.b = isPressed; // B for braking
                     break;
+                case 'c':
+                    this.keyStates.c = isPressed; // C toggles the camera view
+                    break;
                 case 'enter':
                     this.keyStates.enter = isPressed;
                     // Reset after short delay for visual feedback
@@ -114,9 +118,16 @@ export const DesktopControls = {
                 <div class="key-display b" :class="{ active: keyStates.b }">B</div>
                 <span class="control-label">Brake</span>
             </div>
-            
+
             <div class="control-separator"></div>
-            
+
+            <div class="control-group">
+                <div class="key-display c" :class="{ active: keyStates.c }">C</div>
+                <span class="control-label">View</span>
+            </div>
+
+            <div class="control-separator"></div>
+
             <div class="control-group">
                 <div class="key-display enter" :class="{ active: keyStates.enter }">ENTER</div>
                 <span class="control-label">Reset</span>
