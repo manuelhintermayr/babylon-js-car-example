@@ -815,6 +815,9 @@ function CreateWheel(position) {
     return wheelMesh;
 }
 
+// Hard end stops of the suspension travel, matching the Three.js port's prismatic joint limits
+const SUSPENSION_TRAVEL = 3;
+
 function AttachAxleToFrame(axle, frame, hasSteering) {
     const aPos = axle.transformNode.position;
 
@@ -822,14 +825,15 @@ function AttachAxleToFrame(axle, frame, hasSteering) {
     // secondary axis of (1, 0, 0) as (0, -1, 0), which turns the steering motor the wrong way round, so the
     // secondary axis is set explicitly to world up.
     const constraintUp = new BABYLON.Vector3(0, 1, 0);
+    const constraintFrame = {
+        pivotA: new BABYLON.Vector3(0, 0, 0),
+        pivotB: new BABYLON.Vector3(aPos.x, aPos.y, aPos.z),
+        perpAxisA: constraintUp,
+        perpAxisB: constraintUp,
+    };
 
     const joint = new BABYLON.Physics6DoFConstraint(
-        {
-            pivotA: new BABYLON.Vector3(0, 0, 0),
-            pivotB: new BABYLON.Vector3(aPos.x, aPos.y, aPos.z),
-            perpAxisA: constraintUp,
-            perpAxisB: constraintUp,
-        },
+        constraintFrame,
         [
             {
                 axis: BABYLON.PhysicsConstraintAxis.LINEAR_X,
@@ -868,6 +872,7 @@ function AttachAxleToFrame(axle, frame, hasSteering) {
     );
 
     axle.addConstraint(frame, joint);
+    axle.addConstraint(frame, CreateBumpStops(constraintFrame));
 
     if (hasSteering)
         AttachSteering(joint);
@@ -875,12 +880,43 @@ function AttachAxleToFrame(axle, frame, hasSteering) {
     return joint;
 }
 
+/**
+ * The spring on LINEAR_Y above is a soft limit without an end stop, so a violent impact could drag the
+ * wheel arbitrarily far from the body before the spring pulls it back. These stops bound the travel.
+ */
+function CreateBumpStops(constraintFrame) {
+    return new BABYLON.Physics6DoFConstraint(
+        constraintFrame,
+        [
+            {
+                axis: BABYLON.PhysicsConstraintAxis.LINEAR_Y,
+                minLimit: -SUSPENSION_TRAVEL,
+                maxLimit: SUSPENSION_TRAVEL,
+            },
+        ],
+        scene
+    );
+}
+
 function CreateWheelJoint(axle, wheel) {
+    // A hinge: the wheel origin is pinned to the axle origin on all three linear axes and only spins
+    // around X. A LINEAR_DISTANCE limit of 0 is degenerate for coincident pivots (no direction to
+    // correct along), so a hard impact could knock the wheel loose and leave it orbiting the axle.
     const motorJoint = new BABYLON.Physics6DoFConstraint(
         {},
         [
             {
-                axis: BABYLON.PhysicsConstraintAxis.LINEAR_DISTANCE,
+                axis: BABYLON.PhysicsConstraintAxis.LINEAR_X,
+                minLimit: 0,
+                maxLimit: 0,
+            },
+            {
+                axis: BABYLON.PhysicsConstraintAxis.LINEAR_Y,
+                minLimit: 0,
+                maxLimit: 0,
+            },
+            {
+                axis: BABYLON.PhysicsConstraintAxis.LINEAR_Z,
                 minLimit: 0,
                 maxLimit: 0,
             },
