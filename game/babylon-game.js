@@ -171,7 +171,6 @@ async function createScene(vueApp) {
     } else {
         console.error("❌ Car not properly created for camera targeting");
     }
-
     // Create square race track
     const track = createSquareRaceTrack(scene, 800, 800);
     track.position.y = -20;
@@ -615,6 +614,7 @@ function addCarLamp(carFrame, lampMesh, rgb, forwardZ, spot) {
     material.diffuseColor = color;
     material.emissiveColor = color;
     material.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    material.backFaceCulling = false;
     lampMesh.material = material;
     lampMesh.parent = carFrame;
 
@@ -650,6 +650,10 @@ async function CreateCar(vueApp) {
     carFrame.position = new BABYLON.Vector3(0, 5, 0);
     const carFrameBody = AddDynamicPhysicsConvex(carFrame, 5000, 0, 0.8, new BABYLON.Vector3(0, -2.5, 1));
     FilterMeshCollisions(carFrame);
+    if (carFrame.material) {
+        carFrame.material.backFaceCulling = false;
+        carFrame.material.twoSidedLighting = true;
+    }
 
     const layout = [
         { corner: 'frontLeft', signX: 1, signZ: 1, steered: true, powered: true },
@@ -689,9 +693,24 @@ async function CreateCar(vueApp) {
 
     const cockpit = buildCockpit(carFrame, parts);
     createCarLights(carFrame, parts);
+    addGlass(carFrame, parts);
     InitKeyboardControls(driveMotors[0], driveMotors[1], steerMotors[0], steerMotors[1], carFrame, vueApp, cockpit, parts);
 
     return carFrame;
+}
+
+/** Adds the window glass as a separate translucent mesh so the body itself stays opaque. */
+function addGlass(carFrame, parts) {
+    if (!parts.glass) {
+        return;
+    }
+    const material = new BABYLON.StandardMaterial('glassMaterial', scene);
+    material.diffuseColor = new BABYLON.Color3(0.16, 0.2, 0.25);
+    material.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+    material.alpha = 0.35;
+    material.backFaceCulling = false;
+    parts.glass.material = material;
+    parts.glass.parent = carFrame;
 }
 
 /** Parents the steering wheel and pedal to the body as animatable pivots. */
@@ -699,11 +718,9 @@ function buildCockpit(carFrame, parts) {
     const steeringPivot = new BABYLON.TransformNode('steeringPivot', scene);
     steeringPivot.parent = carFrame;
     steeringPivot.position = parts.steering.pivot;
-    steeringPivot.rotationQuaternion = parts.steering.orientation;
     parts.steering.mesh.parent = steeringPivot;
     parts.steering.mesh.position = BABYLON.Vector3.Zero();
-    parts.steering.mesh.rotationQuaternion = null;
-    parts.steering.mesh.rotation = BABYLON.Vector3.Zero();
+    parts.steering.mesh.rotationQuaternion = BABYLON.Quaternion.Identity();
 
     const pedalPivot = new BABYLON.TransformNode('pedalPivot', scene);
     pedalPivot.parent = carFrame;
@@ -713,7 +730,7 @@ function buildCockpit(carFrame, parts) {
     parts.pedal.mesh.position = BABYLON.Vector3.Zero();
     parts.pedal.mesh.rotation = BABYLON.Vector3.Zero();
 
-    return { steeringWheel: parts.steering.mesh, pedal: pedalPivot, pedalPress: 0 };
+    return { steeringWheel: parts.steering.mesh, steeringAxis: parts.steering.axis };
 }
 
 function createFallbackCar(vueApp) {
@@ -1005,12 +1022,9 @@ function InitKeyboardControls(motorWheelA, motorWheelB, steerWheelA, steerWheelB
         motorWheelA.setAxisMotorTarget(BABYLON.PhysicsConstraintAxis.ANGULAR_X, currentSpeed);
         motorWheelB.setAxisMotorTarget(BABYLON.PhysicsConstraintAxis.ANGULAR_X, currentSpeed);
 
-        // Animate the cockpit: turn the steering wheel and press the pedal in time with the controls
+        // Animate the cockpit: spin the steering wheel around its column axis in time with the controls
         if (cockpit) {
-            cockpit.steeringWheel.rotation.z = -currentSteeringAngle * 4;
-            const pedalTarget = (isForward || isBackward || isBrake) ? 0.5 : 0;
-            cockpit.pedalPress += (pedalTarget - cockpit.pedalPress) * 0.25;
-            cockpit.pedal.rotation.x = cockpit.pedalPress;
+            BABYLON.Quaternion.RotationAxisToRef(cockpit.steeringAxis, -currentSteeringAngle * 4, cockpit.steeringWheel.rotationQuaternion);
         }
     });
 }
@@ -1077,12 +1091,15 @@ function CalculateWheelAngles(averageAngle) {
 const CAR_PART_NAMES = {
     frontWheels: ['Cylinder023'],
     rearWheels: ['Cylinder024'],
-    steering: ['Torus002'],
+    steering: ['Torus002', 'Cube074', 'Cube075'],
     pedal: ['Cylinder029', 'Cube073'],
     headlights: ['Plane021'],
-    taillights: ['Plane041', 'Plane042', 'Plane043']
+    taillights: ['Plane041', 'Plane042', 'Plane043'],
+    glass: ['Plane001', 'Plane029', 'Plane023']
 };
 const TARGET_HALF_TRACK = 5;
+// The chassis rests ~3.2 above the wheels; the body is lowered by a bit less so a small gap remains
+const BODY_DROP = 1.8;
 
 function normalizeCarPartName(name) {
     return name.replace(/\./g, '');
@@ -1095,7 +1112,7 @@ function classifyImportedMeshes(meshes) {
             lookup.set(name, part);
         }
     }
-    const buckets = { body: [], frontWheels: [], rearWheels: [], steering: [], pedal: [], headlights: [], taillights: [] };
+    const buckets = { body: [], frontWheels: [], rearWheels: [], steering: [], pedal: [], headlights: [], taillights: [], glass: [] };
     for (const mesh of meshes) {
         if (mesh.getClassName() !== 'Mesh' || mesh.getTotalVertices() === 0) {
             continue;
@@ -1113,7 +1130,6 @@ function mergeBakedPart(meshes, bakeMatrix, name) {
     if (bakeMatrix) {
         merged.bakeTransformIntoVertices(bakeMatrix);
     }
-    merged.flipFaces(true); // undo the winding flip from Babylon's right-to-left-handed import
     return merged;
 }
 
@@ -1179,28 +1195,32 @@ function splitWheelPair(pairMeshes, bake, corners) {
     return [{ corner: corners[0], ...left }, { corner: corners[1], ...right }];
 }
 
-/** A recentred pivot part (steering wheel / pedal) with a parent node carrying its orientation. */
-function buildPivotPart(meshes, bake, name, hingeTop) {
-    const captureMesh = meshes[0];
-    captureMesh.computeWorldMatrix(true);
-    const orientation = captureMesh.absoluteRotationQuaternion.clone();
+/**
+ * Steering wheel: the ring plus its spokes and hub, merged in their real orientation and recentred on
+ * the ring centre. It is spun around the ring's hole axis (its local Y carried into car-frame coordinates).
+ */
+function buildSteeringWheel(meshes, bake) {
+    const ring = meshes.find(mesh => normalizeCarPartName(mesh.name).startsWith('Torus')) ?? meshes[0];
+    ring.computeWorldMatrix(true);
+    const axis = BABYLON.Vector3.TransformNormal(BABYLON.Axis.Y, ring.getWorldMatrix()).normalize();
 
-    const merged = mergeBakedPart(meshes, bake, name);
+    const merged = mergeBakedPart(meshes, bake, 'SteeringWheel');
+    merged.computeWorldMatrix(true);
+    const box = merged.getBoundingInfo().boundingBox;
+    const pivot = box.minimumWorld.add(box.maximumWorld).scale(0.5);
+    merged.bakeTransformIntoVertices(BABYLON.Matrix.Translation(-pivot.x, -pivot.y, -pivot.z));
+    return { mesh: merged, pivot, axis };
+}
+
+/** Pedal: merged and recentred on its top edge so it could hinge forward around X. */
+function buildPedal(meshes, bake) {
+    const merged = mergeBakedPart(meshes, bake, 'Pedal');
     merged.computeWorldMatrix(true);
     const box = merged.getBoundingInfo().boundingBox;
     const min = box.minimumWorld, max = box.maximumWorld;
-    const pivot = hingeTop
-        ? new BABYLON.Vector3((min.x + max.x) / 2, max.y, (min.z + max.z) / 2)
-        : min.add(max).scale(0.5);
-
+    const pivot = new BABYLON.Vector3((min.x + max.x) / 2, max.y, (min.z + max.z) / 2);
     merged.bakeTransformIntoVertices(BABYLON.Matrix.Translation(-pivot.x, -pivot.y, -pivot.z));
-    // Undo the world orientation so the local part is axis-aligned; the pivot node re-applies the tilt
-    if (!hingeTop) {
-        merged.bakeTransformIntoVertices(BABYLON.Matrix.Compose(
-            BABYLON.Vector3.One(), BABYLON.Quaternion.Inverse(orientation), BABYLON.Vector3.Zero()
-        ));
-    }
-    return { mesh: merged, pivot, orientation };
+    return { mesh: merged, pivot };
 }
 
 async function importCustomCar() {
@@ -1222,7 +1242,7 @@ async function importCustomCar() {
         const rear = meshesWorldBox(buckets.rearWheels).center;
         const midZ = (front.z + rear.z) / 2;
         const axleY = (front.y + rear.y) / 2;
-        const bake = BABYLON.Matrix.Translation(0, -axleY, -midZ).multiply(BABYLON.Matrix.Scaling(scale, scale, scale));
+        const bake = BABYLON.Matrix.Translation(0, -axleY, -midZ).multiply(BABYLON.Matrix.Scaling(scale, scale, scale)).multiply(BABYLON.Matrix.Translation(0, -BODY_DROP, 0));
 
         const wheels = [
             ...splitWheelPair(buckets.frontWheels, bake, ['frontLeft', 'frontRight']),
@@ -1236,10 +1256,11 @@ async function importCustomCar() {
             wheelRadius: wheels[0].radius,
             halfTrack: Math.abs(wheels[0].hub.x),
             halfWheelbase: Math.abs(wheels[0].hub.z),
-            steering: buildPivotPart(buckets.steering, bake, 'SteeringWheel', false),
-            pedal: buildPivotPart(buckets.pedal, bake, 'Pedal', true),
+            steering: buildSteeringWheel(buckets.steering, bake),
+            pedal: buildPedal(buckets.pedal, bake),
             headlights: mergeBakedPart(buckets.headlights, bake, 'Headlights'),
-            taillights: mergeBakedPart(buckets.taillights, bake, 'Taillights')
+            taillights: mergeBakedPart(buckets.taillights, bake, 'Taillights'),
+            glass: buckets.glass.length > 0 ? mergeBakedPart(buckets.glass, bake, 'Glass') : null
         };
         result.meshes.forEach(mesh => { if (mesh.getClassName() === 'Mesh') mesh.dispose(); });
 
