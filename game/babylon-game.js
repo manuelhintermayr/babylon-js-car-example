@@ -717,7 +717,7 @@ function addGlass(carFrame, parts) {
     parts.glass.parent = carFrame;
 }
 
-/** Parents the steering wheel, pedal and gear lever to the body as animatable pivots. */
+/** Parents the steering wheel, pedals and gear lever to the body as animatable pivots. */
 function buildCockpit(carFrame, parts) {
     const steeringPivot = new BABYLON.TransformNode('steeringPivot', scene);
     steeringPivot.parent = carFrame;
@@ -736,7 +736,17 @@ function buildCockpit(carFrame, parts) {
     const shifterPivot = parentOnPivot(parts.shifter, 'shifterPivot', carFrame);
     const camera = buildCockpitCamera(carFrame, parts.steering.pivot);
 
-    return { steeringWheel: parts.steering.mesh, steeringAxis: parts.steering.axis, gasPedalPivot, brakePedalPivot, shifterPivot, camera, gasPress: 0, brakePress: 0, shiftPos: 0 };
+    return {
+        steeringWheel: parts.steering.mesh,
+        steeringAxis: parts.steering.axis,
+        gasPedalPivot,
+        brakePedalPivot,
+        shifterPivot,
+        camera,
+        gasPress: 0,
+        brakePress: 0,
+        shiftPos: 0
+    };
 }
 
 /** Parents a recentred part onto a fresh pivot node at its hinge, ready to be rotated. */
@@ -751,14 +761,20 @@ function parentOnPivot(part, name, carFrame) {
     return pivot;
 }
 
+// Driver's eye relative to the steering wheel pivot, in the body's local frame (+Z forward, +X right, +Y up)
+const COCKPIT_EYE_OFFSET = { x: 1.1, y: 2.4, z: -5.6 };
+const COCKPIT_CAMERA_PITCH = 0.255; // radians downward: wheel + dash + footwell below, full windshield above
+const COCKPIT_FIELD_OF_VIEW = 1.29; // radians, a wide driver's POV
+const COCKPIT_NEAR_PLANE = 0.1; // the dashboard sits right in front of the lens
+
 /** A driver's-eye camera parented to the body, looking forward through the windshield. */
 function buildCockpitCamera(carFrame, wheelPivot) {
-    const eye = wheelPivot.add(new BABYLON.Vector3(1.1, 2.4, -5.6));
+    const eye = wheelPivot.add(new BABYLON.Vector3(COCKPIT_EYE_OFFSET.x, COCKPIT_EYE_OFFSET.y, COCKPIT_EYE_OFFSET.z));
     const camera = new BABYLON.UniversalCamera('CockpitCam', eye, scene);
     camera.parent = carFrame;
-    camera.rotation = new BABYLON.Vector3(0.255, 0, 0); // downward tilt: wheel + dash + footwell below, full windshield above
-    camera.minZ = 0.1;
-    camera.fov = 1.29;
+    camera.rotation = new BABYLON.Vector3(COCKPIT_CAMERA_PITCH, 0, 0);
+    camera.minZ = COCKPIT_NEAR_PLANE;
+    camera.fov = COCKPIT_FIELD_OF_VIEW;
     return camera;
 }
 
@@ -1094,13 +1110,14 @@ function InitKeyboardControls(motorWheelA, motorWheelB, steerWheelA, steerWheelB
 
         // Animate the cockpit: the wheel and gear lever move in every view, the pedals only in the interior view
         if (cockpit) {
-            BABYLON.Quaternion.RotationAxisToRef(cockpit.steeringAxis, -currentSteeringAngle * 4, cockpit.steeringWheel.rotationQuaternion);
+            BABYLON.Quaternion.RotationAxisToRef(cockpit.steeringAxis, -currentSteeringAngle * STEERING_WHEEL_RATIO, cockpit.steeringWheel.rotationQuaternion);
             const inside = scene.activeCamera === cockpit.camera;
-            animateCockpitControls(cockpit, inside, isForward, isBackward, isBrake);
+            animateCockpitControls(cockpit, inside, { forward: isForward, backward: isBackward, brake: isBrake });
         }
     });
 }
 
+const STEERING_WHEEL_RATIO = 4; // dashboard wheel turns further than the road wheels
 const PEDAL_PRESS_ANGLE = 0.5; // radians the pedal rotates when pressed
 const SHIFTER_TILT_ANGLE = 0.5; // radians the gear lever rocks fore/aft
 const PEDAL_SMOOTHING = 0.25;
@@ -1115,21 +1132,24 @@ function toggleCockpitView(cockpit) {
     scene.activeCamera = scene.activeCamera === cockpit.camera ? follow : cockpit.camera;
 }
 
-/** Presses the pedal and rocks the gear lever (fore = accelerate, centre = neutral, aft = brake/reverse). */
-function animateCockpitControls(cockpit, inside, isForward, isBackward, isBrake) {
-    const gasTarget = inside && (isForward || isBackward) ? PEDAL_PRESS_ANGLE : 0;
+/**
+ * Presses the pedals (interior view only) and rocks the gear lever (fore = accelerate, centre = neutral,
+ * aft = brake/reverse) for the given { forward, backward, brake } input.
+ */
+function animateCockpitControls(cockpit, inside, input) {
+    const gasTarget = inside && (input.forward || input.backward) ? PEDAL_PRESS_ANGLE : 0;
     cockpit.gasPress += (gasTarget - cockpit.gasPress) * PEDAL_SMOOTHING;
     cockpit.gasPedalPivot.rotation.x = cockpit.gasPress;
 
-    const brakeTarget = inside && isBrake ? PEDAL_PRESS_ANGLE : 0;
+    const brakeTarget = inside && input.brake ? PEDAL_PRESS_ANGLE : 0;
     cockpit.brakePress += (brakeTarget - cockpit.brakePress) * PEDAL_SMOOTHING;
     cockpit.brakePedalPivot.rotation.x = cockpit.brakePress;
 
     // The gear lever moves in every view (like the steering wheel), not only in the cockpit.
     let shiftTarget = 0;
-    if (isForward) {
+    if (input.forward) {
         shiftTarget = SHIFTER_TILT_ANGLE;
-    } else if (isBrake || isBackward) {
+    } else if (input.brake || input.backward) {
         shiftTarget = -SHIFTER_TILT_ANGLE;
     }
     cockpit.shiftPos += (shiftTarget - cockpit.shiftPos) * SHIFTER_SMOOTHING;
@@ -1195,10 +1215,12 @@ function CalculateWheelAngles(averageAngle) {
 }
 
 // ==== Ford Anglia model loading and part extraction ====
+// The steering hub node also carries the fixed arm reaching to the dashboard, see buildSteeringWheel
+const STEERING_COLUMN_NODE = 'Cube075';
 const CAR_PART_NAMES = {
     frontWheels: ['Cylinder023'],
     rearWheels: ['Cylinder024'],
-    steering: ['Torus002', 'Cube074', 'Cube075'],
+    steering: ['Torus002', 'Cube074', STEERING_COLUMN_NODE],
     gasPedal: ['Cube067', 'Cube068'],
     brakePedal: ['Cube065', 'Cube066'],
     shifter: ['Cylinder030'],
@@ -1258,21 +1280,28 @@ function meshesWorldBox(meshes) {
     return { min, max, center: min.add(max).scale(0.5), size: max.subtract(min) };
 }
 
+/** The vertex positions of a mesh transformed into world space. */
+function worldPositions(mesh) {
+    mesh.computeWorldMatrix(true);
+    const worldMatrix = mesh.getWorldMatrix();
+    const pos = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    const world = [];
+    for (let i = 0; i < pos.length; i += 3) {
+        world.push(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(pos[i], pos[i + 1], pos[i + 2]), worldMatrix));
+    }
+    return world;
+}
+
 /**
  * Extracts the triangles of a mesh whose world-space centroid passes `keep` into a fresh world-space mesh
  * with a uniform (position/normal/uv) layout, so meshes from different sources can be merged together.
  */
 function worldMesh(mesh, keep, name) {
-    mesh.computeWorldMatrix(true);
+    const world = worldPositions(mesh);
     const worldMatrix = mesh.getWorldMatrix();
-    const pos = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     const nor = mesh.getVerticesData(BABYLON.VertexBuffer.NormalKind);
     const uv = mesh.getVerticesData(BABYLON.VertexBuffer.UVKind);
     const idx = mesh.getIndices();
-    const world = [];
-    for (let i = 0; i < pos.length; i += 3) {
-        world.push(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(pos[i], pos[i + 1], pos[i + 2]), worldMatrix));
-    }
     const positions = [], normals = [], uvs = [], indices = [];
     const remap = new Map();
     for (let t = 0; t < idx.length; t += 3) {
@@ -1334,17 +1363,13 @@ function buildSteeringWheel(meshes, bake) {
     const axis = BABYLON.Vector3.TransformNormal(BABYLON.Axis.Y, ring.getWorldMatrix()).normalize();
     const ringBounds = ring.getBoundingInfo().boundingBox;
     const center = ringBounds.minimumWorld.add(ringBounds.maximumWorld).scale(0.5); // world ring centre for the axial split
-
-    // Pivot on the ring's own centre (a circle is centred on its bounds) so the wheel spins in place.
-    const ringOnly = mergeBakedPart([ring], bake, 'SteeringRing');
-    ringOnly.computeWorldMatrix(true);
-    const bakedRingBounds = ringOnly.getBoundingInfo().boundingBox;
-    const pivot = bakedRingBounds.minimumWorld.add(bakedRingBounds.maximumWorld).scale(0.5);
-    ringOnly.dispose();
+    // Pivot on the ring's own centre (a circle is centred on its bounds) so the wheel spins in place. The bake
+    // is a uniform scale plus translations, so the centre maps straight into car-frame coordinates.
+    const pivot = BABYLON.Vector3.TransformCoordinates(center, bake);
 
     // Cube.075 bundles the spinning hub + spokes with a fixed arm reaching the dashboard. Split it along the
     // column axis: the near part spins with the wheel, the arm becomes a separate mesh fixed to the body.
-    const column = meshes.find(mesh => normalizeCarPartName(mesh.name).startsWith('Cube075'));
+    const column = meshes.find(mesh => normalizeCarPartName(mesh.name).startsWith(STEERING_COLUMN_NODE));
     const axialAbs = c => Math.abs(BABYLON.Vector3.Dot(c.subtract(center), axis));
     const spinning = [];
     let armMesh = null;
