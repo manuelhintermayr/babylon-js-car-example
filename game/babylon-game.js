@@ -265,7 +265,7 @@ function addReflectionsToCar() {
 
     const reflection = carProbe.cubeTexture;
     reflection.coordinatesMode = 6; //3;
-    reflection.level = 5;
+    reflection.level = 2.5;
     const carBody = scene.getMeshByName("CarBody");
     if (carBody && carBody.material) {
         carBody.material.reflectionTexture = reflection;
@@ -653,6 +653,10 @@ async function CreateCar(vueApp) {
     if (carFrame.material) {
         carFrame.material.backFaceCulling = false;
         carFrame.material.twoSidedLighting = true;
+        // Metallic paint like the Three.js port: the interior then reflects the dark cabin (matte) and the
+        // exterior the bright sky (glossy), instead of the flat, uniformly shiny look of a non-metallic material.
+        carFrame.material.metallic = 0.85;
+        carFrame.material.roughness = 0.25;
     }
 
     const layout = [
