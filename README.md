@@ -40,11 +40,12 @@ This project showcases **advanced game development** using:
 
 ### 🏁 Core Gameplay
 - **Realistic car physics** powered by Havok Physics Engine (based on [Babylon.js Playground demo](https://www.babylonjs-playground.com/#ANV5OM#139))
-- **Hand-made low-poly car model** (Ford Anglia) loaded from a Draco-compressed GLB; its wheels, headlights, taillights, steering wheel and pedals are used directly by the game (the steering wheel turns and the pedal presses while you drive)
+- **Hand-made low-poly car model** (Ford Anglia) loaded from a Draco-compressed GLB; its wheels, headlights, taillights, steering wheel, pedals and gear lever are used directly by the game (the steering wheel turns, the gear lever rocks and the pedals press while you drive)
 - **ConvexHull physics** for complex 3D model collision detection
 - **Dynamic camera system** with mouse controls and smooth following (based on [Babylon.js mouse control demo](https://playground.babylonjs.com/#FMQX86#1))
 - **Jump mechanics** with Space key for aerial stunts
 - **Advanced braking system** with B key for precision control
+- **Cockpit view** – press C to switch between the follow camera and a driver's-eye view through the windshield
 - **Enhanced steering** with optimized responsiveness (4x faster turning)
 
 ### 🎯 Game Objectives & Environment
@@ -76,6 +77,7 @@ This project showcases **advanced game development** using:
 - **WASD/Arrow Keys** for movement with real-time visual feedback
 - **Space Bar** for jumping mechanics and aerial stunts
 - **B Key** for precision braking with force indication
+- **C Key** to toggle between the follow camera and the cockpit view
 - **Mouse Controls** for 360° camera rotation around vehicle
 - **Enter Key** for instant game reset
 - **F12/Backtick** for debug panel toggle
@@ -221,9 +223,9 @@ The project uses **ES6 modules** which require a web server (not `file://` proto
    - Use `F12` or `` ` `` to open debug panels (optional)
 
 2. **🚗 Master the Controls**
-   - **Desktop**: Use WASD keys for movement, Space for jumping, B for braking
+   - **Desktop**: Use WASD keys for movement, Space for jumping, B for braking, C for the cockpit view
    - **Mobile**: Use the virtual joystick with touch jump and brake buttons
-   - **Camera**: Use mouse to rotate camera view around your car
+   - **Camera**: Use mouse to rotate camera view around your car, C switches into the driver's seat and back
 
 3. **🎯 Complete Objectives**
    - Drive around and find the 5 orange boxes scattered across the track
