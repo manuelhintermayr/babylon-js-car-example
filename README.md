@@ -100,7 +100,9 @@ This project showcases **advanced game development** using:
 
 ## 🎬 Gameplay Demo
 
-![Gameplay Demo](preview.gif)
+<video src="preview.mp4" poster="preview.jpg" width="800" controls muted loop playsinline>
+  <img src="preview.jpg" alt="Gameplay demo of the Babylon.js car game" width="800" />
+</video>
 
 *Experience realistic car physics and cross-platform controls in action*
 
@@ -116,7 +118,7 @@ This project showcases **advanced game development** using:
 ├── 📄 LICENSE                # MIT License
 ├── 📄 README.md              # Project documentation
 ├── 🖼️ preview.jpg            # Game preview screenshot
-├── 🎬 preview.gif            # Gameplay demo animation
+├── 🎬 preview.mp4            # Gameplay demo video
 │
 ├── 📁 components/            # 🔧 Modular Vue Components
 │   ├── 📄 info-panel.js      # Debug panel with glassmorphism UI
