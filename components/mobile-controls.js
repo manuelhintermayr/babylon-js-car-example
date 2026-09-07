@@ -8,7 +8,7 @@ export const MobileControls = {
             required: true
         }
     },
-    emits: ['update-touch-controls', 'reset-game'],
+    emits: ['update-touch-controls', 'reset-game', 'toggle-view'],
     data() {
         return {
             joystickActive: false,
@@ -142,6 +142,11 @@ export const MobileControls = {
             this.$emit('reset-game');
         },
 
+        onToggleView(e) {
+            e.preventDefault();
+            this.$emit('toggle-view');
+        },
+
         onJumpStart(e) {
             e.preventDefault();
             this.touchControls.jump = true;
@@ -190,6 +195,9 @@ export const MobileControls = {
                 </div>
                 <div class="action-button jump" @touchstart="onJumpStart" @touchend="onJumpEnd">
                     🚀
+                </div>
+                <div class="action-button view" @touchstart="onToggleView">
+                    📷
                 </div>
                 <div class="action-button reset" @touchstart="onResetTouch">
                     🔄

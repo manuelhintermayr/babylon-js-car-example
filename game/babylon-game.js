@@ -995,6 +995,7 @@ function AttachSteering(joint) {
 }
 
 function InitKeyboardControls(motorWheelA, motorWheelB, steerWheelA, steerWheelB, carFrame, vueApp, cockpit, parts) {
+    activeCockpit = cockpit;
     let forwardPressed = false;
     let backPressed = false;
     let leftPressed = false;
@@ -1142,6 +1143,14 @@ const PEDAL_PRESS_ANGLE = 0.5; // radians the pedal rotates when pressed
 const SHIFTER_TILT_ANGLE = 0.5; // radians the gear lever rocks fore/aft
 const PEDAL_SMOOTHING = 0.25;
 const SHIFTER_SMOOTHING = 0.2;
+
+// The cockpit of the current scene, so the mobile View button can toggle the camera from outside the game loop
+let activeCockpit = null;
+
+/** Toggles the camera view from outside the game loop (e.g. the mobile View button). */
+export function toggleView() {
+    toggleCockpitView(activeCockpit);
+}
 
 /** Toggles the active camera between the outside follow view and the driver's-eye cockpit view. */
 function toggleCockpitView(cockpit) {
