@@ -264,17 +264,26 @@ async function createScene(vueApp) {
     return scene;
 }
 
-function addReflectionsToCar() {
-    const carProbe = new BABYLON.ReflectionProbe("reflections", 256, scene, false, false);
+const REFLECTION_PROBE_SIZE = 128;
+// Frames between two captures of the six cube faces; the mirrored surroundings lag a little at speed
+const REFLECTION_PROBE_REFRESH_FRAMES = 3;
 
+function addReflectionsToCar() {
+    const carProbe = new BABYLON.ReflectionProbe("reflections", REFLECTION_PROBE_SIZE, scene, false, false);
+    carProbe.refreshRate = REFLECTION_PROBE_REFRESH_FRAMES;
+    const carBody = scene.getMeshByName("CarBody");
+
+    // Only the surroundings are mirrored: the car must not reflect its own parts
     for (const mesh of scene.meshes) {
-        carProbe.renderList.push(mesh);
+        const isCarPart = carBody && (mesh === carBody || mesh.isDescendantOf(carBody));
+        if (!isCarPart) {
+            carProbe.renderList.push(mesh);
+        }
     }
 
     const reflection = carProbe.cubeTexture;
     reflection.coordinatesMode = 6; //3;
     reflection.level = 2.5;
-    const carBody = scene.getMeshByName("CarBody");
     if (carBody && carBody.material) {
         carBody.material.reflectionTexture = reflection;
     }
@@ -283,13 +292,17 @@ function addReflectionsToCar() {
     }
 }
 
+// The blurred glow does not need full resolution; the kernel shrinks with the texture to keep the same radius
+const GLOW_TEXTURE_RATIO = 0.25;
+const GLOW_BLUR_KERNEL = 32;
+
 function addGlowLayer() {
     const glowLayer = new BABYLON.GlowLayer("Glow", scene, {
-        mainTextureSamples: 4
+        mainTextureRatio: GLOW_TEXTURE_RATIO
     });
 
     glowLayer.intensity = 4;
-    glowLayer.blurKernelSize = 64;
+    glowLayer.blurKernelSize = GLOW_BLUR_KERNEL;
 }
 
 function createSquareRaceTrack(scene, width = 800, height = 800) {
@@ -471,6 +484,7 @@ function setupCollisionDetection(scene, car, vueApp) {
     let lastVelocity = { x: 0, y: 0, z: 0 };
     let debugCounter = 0;
     let startTime = Date.now(); // Track when system started
+    const knockableBoxes = scene.meshes.filter(mesh => mesh.name.includes("knockableBox_"));
 
     console.log("Collision detection system started, box detection active after 2 seconds...");
 
@@ -500,41 +514,39 @@ function setupCollisionDetection(scene, car, vueApp) {
 
         // Debug every 300 frames (5 seconds at 60fps) - reduced spam
         if (debugCounter % 300 === 0) {
-            const boxCount = scene.meshes.filter(m => m.name.includes("knockableBox_")).length;
+            const boxCount = knockableBoxes.length;
             console.log(`Debug: Car at (${car.position.x.toFixed(1)}, ${car.position.y.toFixed(1)}, ${car.position.z.toFixed(1)}), Found ${boxCount} boxes`);
         }
 
         // Only start checking box movement after 2 seconds (let physics settle)
         if (Date.now() - startTime > 2000) {
             // Check for box movement (knocked boxes) - allow multiple hits per box
-            scene.meshes.forEach(mesh => {
-                if (mesh.name.includes("knockableBox_")) {
-                    // Update initial position if this is first check after settling
-                    if (!mesh.positionSettled) {
-                        mesh.initialPosition = mesh.position.clone();
-                        mesh.positionSettled = true;
-                        return; // Skip this frame for this box
-                    }
+            for (const mesh of knockableBoxes) {
+                // Update initial position if this is first check after settling
+                if (!mesh.positionSettled) {
+                    mesh.initialPosition = mesh.position.clone();
+                    mesh.positionSettled = true;
+                    continue; // Skip this frame for this box
+                }
 
-                    // Calculate how much the box has moved from its settled position
-                    const movementDistance = BABYLON.Vector3.Distance(mesh.position, mesh.initialPosition);
-                    const now = Date.now();
+                // Calculate how much the box has moved from its settled position
+                const movementDistance = BABYLON.Vector3.Distance(mesh.position, mesh.initialPosition);
+                const now = Date.now();
 
-                    // If box moved more than 3 units and enough time passed since last count
-                    if (movementDistance > 3) {
-                        // Use cooldown per box to prevent rapid spam (1000ms)
-                        if (!collisionCooldowns.has(mesh.name) || now - collisionCooldowns.get(mesh.name) > 1000) {
-                            if (vueApp) {
-                                vueApp.knockedBoxes++;
-                                console.log(`Box ${mesh.name} moved ${movementDistance.toFixed(2)} units from settled position! Total: ${vueApp.knockedBoxes}`);
-                                // Update initial position to current position to track further movement
-                                mesh.initialPosition = mesh.position.clone();
-                            }
-                            collisionCooldowns.set(mesh.name, now);
+                // If box moved more than 3 units and enough time passed since last count
+                if (movementDistance > 3) {
+                    // Use cooldown per box to prevent rapid spam (1000ms)
+                    if (!collisionCooldowns.has(mesh.name) || now - collisionCooldowns.get(mesh.name) > 1000) {
+                        if (vueApp) {
+                            vueApp.knockedBoxes++;
+                            console.log(`Box ${mesh.name} moved ${movementDistance.toFixed(2)} units from settled position! Total: ${vueApp.knockedBoxes}`);
+                            // Update initial position to current position to track further movement
+                            mesh.initialPosition = mesh.position.clone();
                         }
+                        collisionCooldowns.set(mesh.name, now);
                     }
                 }
-            });
+            }
         }
 
         lastVelocity = { x: velocity.x, y: velocity.y, z: velocity.z };
