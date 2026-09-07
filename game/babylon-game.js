@@ -162,8 +162,6 @@ async function createScene(vueApp) {
     const hemisphericLight = new BABYLON.HemisphericLight("Hemispheric Light", new BABYLON.Vector3(1, 1, 0), scene);
     hemisphericLight.intensity = 0.5; // Much darker ambient lighting
 
-    InitTyreMaterial();
-
     const carF = await CreateCar(vueApp);
 
     // Ensure camera setup waits for car to be fully initialized
@@ -269,8 +267,13 @@ function addReflectionsToCar() {
     const reflection = carProbe.cubeTexture;
     reflection.coordinatesMode = 6; //3;
     reflection.level = 5;
-    scene.getMaterialByName("material0").reflectionTexture = reflection;
-    carProbe.attachToMesh(scene.getMeshByName("CarBody"));
+    const carBody = scene.getMeshByName("CarBody");
+    if (carBody && carBody.material) {
+        carBody.material.reflectionTexture = reflection;
+    }
+    if (carBody) {
+        carProbe.attachToMesh(carBody);
+    }
 }
 
 function addGlowLayer() {
@@ -599,233 +602,170 @@ function createBridge(scene) {
 }
 
 // Create red taillights for the car
-function createTaillights(carFrame, scene) {
-    // Create left taillight (half size)
-    const leftTaillight = BABYLON.MeshBuilder.CreateSphere("leftTaillight", { diameter: 1 }, scene);
-    leftTaillight.position = new BABYLON.Vector3(5.2, 1.65, -13.5); // Left rear of car
-    leftTaillight.parent = carFrame;
-
-    // Create right taillight (half size)
-    const rightTaillight = BABYLON.MeshBuilder.CreateSphere("rightTaillight", { diameter: 1 }, scene);
-    rightTaillight.position = new BABYLON.Vector3(-5.2, 1.65, -13.5); // Right rear of car
-    rightTaillight.parent = carFrame;
-
-    // Create red glowing material for taillights
-    const taillightMaterial = new BABYLON.StandardMaterial("taillightMaterial", scene);
-    taillightMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red color
-    taillightMaterial.emissiveColor = new BABYLON.Color3(0.8, 0, 0); // Red glow
-    taillightMaterial.specularColor = new BABYLON.Color3(0.2, 0, 0);
-
-    // Apply material to both taillights
-    leftTaillight.material = taillightMaterial;
-    rightTaillight.material = taillightMaterial;
-
-    // Create one CENTRAL red spot light for both taillights (more efficient)
-    const centralTaillightPosition = new BABYLON.Vector3(0, 1.65, -13.5); // Center between taillights
-    const taillightSpot = new BABYLON.SpotLight("taillightSpot",
-        centralTaillightPosition,
-        new BABYLON.Vector3(0, 0, -1), // Direction pointing backward
-        Math.PI / 1.2, // Wider angle to cover both taillight areas
-        2, // Exponent for light falloff
-        scene);
-    taillightSpot.diffuse = new BABYLON.Color3(1, 0, 0); // Red diffuse light
-    taillightSpot.specular = new BABYLON.Color3(0.3, 0, 0); // Red specular
-    taillightSpot.intensity = 1.5; // Higher intensity to compensate for single light
-    taillightSpot.range = 25; // Range for light distribution
-    taillightSpot.parent = carFrame;
-
-    // Enable shadow receiving for all car parts and ground
-    carFrame.receiveShadows = true;
-
-    // Make sure ground receives shadows and light
-    const groundMesh = scene.getMeshByName("SquareTrack");
-    if (groundMesh) {
-        groundMesh.receiveShadows = true;
-    }
-
-    // Improve car material for better light reflection
-    if (carFrame.material) {
-        carFrame.material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
-        carFrame.material.specularPower = 16;
-    }
-
-    console.log("🔴 Enhanced red taillights with ESM shadows and focused beams created");
+// Lights the model's own headlight and taillight meshes and casts a spot light from each.
+function createCarLights(carFrame, parts) {
+    addCarLamp(carFrame, parts.headlights, [0.867, 0.773, 0.518], 1, { intensity: 3, range: 60, angle: Math.PI / 2, droop: 0.3, shadows: true });
+    addCarLamp(carFrame, parts.taillights, [1, 0, 0], -1, { intensity: 1.5, range: 25, angle: Math.PI / 1.2, droop: 0, shadows: false });
+    console.log('💡 Model headlights and taillights lit');
 }
 
-// Create front headlights for the car
-function createHeadlights(carFrame, scene) {
-    // Create left headlight as cylinder (like a cake - round with depth)
-    const leftHeadlight = BABYLON.MeshBuilder.CreateCylinder("leftHeadlight", {
-        diameter: 2.1,
-        height: 0.8 // The "length/depth" of the headlight
-    }, scene);
-    leftHeadlight.position = new BABYLON.Vector3(5.1, 1.65, 13.5); // Left front of car
-    leftHeadlight.rotation.x = Math.PI / 2; // Rotate 90° to lie flat against car front
-    leftHeadlight.parent = carFrame;
+function addCarLamp(carFrame, lampMesh, rgb, forwardZ, spot) {
+    const color = new BABYLON.Color3(rgb[0], rgb[1], rgb[2]);
+    const material = new BABYLON.StandardMaterial(lampMesh.name + 'Material', scene);
+    material.diffuseColor = color;
+    material.emissiveColor = color;
+    material.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    lampMesh.material = material;
+    lampMesh.parent = carFrame;
 
-    // Create right headlight as cylinder (like a cake - round with depth)
-    const rightHeadlight = BABYLON.MeshBuilder.CreateCylinder("rightHeadlight", {
-        diameter: 2.1,
-        height: 0.8 // The "length/depth" of the headlight
-    }, scene);
-    rightHeadlight.position = new BABYLON.Vector3(-5.1, 1.65, 13.5); // Right front of car
-    rightHeadlight.rotation.x = Math.PI / 2; // Rotate 90° to lie flat against car front
-    rightHeadlight.parent = carFrame;
+    const box = lampMesh.getBoundingInfo().boundingBox;
+    const center = box.minimum.add(box.maximum).scale(0.5);
+    const light = new BABYLON.SpotLight(lampMesh.name + 'Spot',
+        center,
+        new BABYLON.Vector3(0, -spot.droop, forwardZ),
+        spot.angle, 2, scene);
+    light.diffuse = color;
+    light.specular = color;
+    light.intensity = spot.intensity;
+    light.range = spot.range;
+    light.parent = carFrame;
 
-    // Create warm white glowing material for headlights (color #ddc584)
-    const headlightMaterial = new BABYLON.StandardMaterial("headlightMaterial", scene);
-    headlightMaterial.diffuseColor = new BABYLON.Color3(0.867, 0.773, 0.518); // #ddc584 converted to RGB
-    headlightMaterial.emissiveColor = new BABYLON.Color3(0.867, 0.773, 0.518); // Warm glow
-    headlightMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-
-    // Apply material to both headlights
-    leftHeadlight.material = headlightMaterial;
-    rightHeadlight.material = headlightMaterial;
-
-    // Create one CENTRAL headlight for both headlight areas (more efficient)
-    const centralHeadlightPosition = new BABYLON.Vector3(0, 1.65, 13.5); // Center between headlights
-    const headlightSpot = new BABYLON.SpotLight("headlightSpot",
-        centralHeadlightPosition,
-        new BABYLON.Vector3(0, -0.3, 1), // Direction pointing forward and down
-        Math.PI / 2, // Wider angle to cover both headlight areas
-        2, // Exponent for light falloff
-        scene);
-    headlightSpot.diffuse = new BABYLON.Color3(0.867, 0.773, 0.518); // #ddc584 warm light
-    headlightSpot.specular = new BABYLON.Color3(0.8, 0.7, 0.5); // Higher specular to match ground reflectivity
-    headlightSpot.intensity = 3.0; // Higher intensity to compensate for single light
-    headlightSpot.range = 60; // Longer range for headlights
-    headlightSpot.parent = carFrame;
-
-    // Create shadow generator for the central headlight
-    const headlightShadowGenerator = new BABYLON.ShadowGenerator(1024, headlightSpot);
-    headlightShadowGenerator.useBlurExponentialShadowMap = true;
-    headlightShadowGenerator.blurBoxOffset = 2.0;
-    headlightShadowGenerator.bias = 0.00001;
-
-    // Enable shadow receiving and add meshes to shadow rendering
-    const groundMesh = scene.getMeshByName("SquareTrack");
-    if (groundMesh) {
-        headlightShadowGenerator.getShadowMap().renderList.push(carFrame);
-
-        // Also add wheels to shadow casting if they exist
-        const wheels = scene.meshes.filter(mesh => mesh.name.includes("Wheel"));
-        wheels.forEach(wheel => {
-            headlightShadowGenerator.getShadowMap().renderList.push(wheel);
-        });
+    if (spot.shadows) {
+        const shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+        shadowGenerator.useBlurExponentialShadowMap = true;
+        shadowGenerator.blurBoxOffset = 2.0;
+        shadowGenerator.bias = 0.00001;
+        shadowGenerator.getShadowMap().renderList.push(carFrame);
     }
-
-    console.log("💡 Warm white headlights (#ddc584) with shadows created");
 }
 
 async function CreateCar(vueApp) {
-    // Import the custom car model
-    const customCarBody = await importCustomCar();
-
-    // Use the imported car body instead of creating a box
-    let carFrame;
-    if (customCarBody) {
-        carFrame = customCarBody;
-    } else {
-        console.error("Custom car loading failed! Using fallback box.");
-        // Fallback to original box if model loading fails
-        carFrame = BABYLON.MeshBuilder.CreateBox("CarBody", { height: 1, width: 12, depth: 24, faceColors: debugColours });
-        carFrame.position = new BABYLON.Vector3(0, 1, 0);
-        carFrame.visibility = 0.5;
-        const carFrameBody = AddDynamicPhysics(carFrame, 2000, 0, 0, new BABYLON.Vector3(0, -2.5, 1));
-        FilterMeshCollisions(carFrame);
-
-        // Continue with wheel creation for fallback
-        const flWheel = CreateWheel(new BABYLON.Vector3(5, 0, 8));
-        const flAxle = CreateAxle(new BABYLON.Vector3(5, 0, 8));
-        const frWheel = CreateWheel(new BABYLON.Vector3(-5, 0, 8));
-        const frAxle = CreateAxle(new BABYLON.Vector3(-5, 0, 8));
-        const rlWheel = CreateWheel(new BABYLON.Vector3(5, 0, -10));
-        const rlAxle = CreateAxle(new BABYLON.Vector3(5, 0, -10));
-        const rrWheel = CreateWheel(new BABYLON.Vector3(-5, 0, -10));
-        const rrAxle = CreateAxle(new BABYLON.Vector3(-5, 0, -10));
-
-        const poweredWheelMotorA = CreatePoweredWheelJoint(flAxle, flWheel);
-        const poweredWheelMotorB = CreatePoweredWheelJoint(frAxle, frWheel);
-        CreateWheelJoint(rlAxle, rlWheel);
-        CreateWheelJoint(rrAxle, rrWheel);
-
-        const steerWheelA = AttachAxleToFrame(flAxle.physicsBody, carFrame.physicsBody, true);
-        const steerWheelB = AttachAxleToFrame(frAxle.physicsBody, carFrame.physicsBody, true);
-        AttachAxleToFrame(rlAxle.physicsBody, carFrame.physicsBody);
-        AttachAxleToFrame(rrAxle.physicsBody, carFrame.physicsBody);
-
-        InitKeyboardControls(poweredWheelMotorA, poweredWheelMotorB, steerWheelA, steerWheelB, carFrame, vueApp);
-
-        return carFrame;
+    const parts = await importCustomCar();
+    if (!parts) {
+        console.error('Custom car loading failed! Using fallback box.');
+        return createFallbackCar(vueApp);
     }
 
-    carFrame.position = new BABYLON.Vector3(0, 5, 0); // Higher position for larger car
-    // Remove visibility setting to show the actual car model
-    // carFrame.visibility = 0.5; 
-
-    // Use ConvexHull physics for better performance with complex meshes
+    const carFrame = parts.body;
+    carFrame.position = new BABYLON.Vector3(0, 5, 0);
     const carFrameBody = AddDynamicPhysicsConvex(carFrame, 5000, 0, 0.8, new BABYLON.Vector3(0, -2.5, 1));
+    FilterMeshCollisions(carFrame);
+
+    const layout = [
+        { corner: 'frontLeft', signX: 1, signZ: 1, steered: true, powered: true },
+        { corner: 'frontRight', signX: -1, signZ: 1, steered: true, powered: true },
+        { corner: 'rearLeft', signX: 1, signZ: -1, steered: false, powered: false },
+        { corner: 'rearRight', signX: -1, signZ: -1, steered: false, powered: false }
+    ];
+    const wheelsByCorner = new Map(parts.wheels.map(wheel => [wheel.corner, wheel]));
+    const assemblies = layout.map(entry => {
+        const position = new BABYLON.Vector3(entry.signX * parts.halfTrack, 0, entry.signZ * parts.halfWheelbase);
+        const wheelMesh = wheelsByCorner.get(entry.corner).mesh;
+        wheelMesh.position = position.clone();
+        const axle = CreateAxle(position.clone());
+        return { ...entry, wheelMesh, axle };
+    });
+
+    for (const assembly of assemblies) {
+        carFrame.addChild(assembly.axle);
+        AddAxlePhysics(assembly.axle, 190, 0, 0);
+        FilterMeshCollisions(assembly.axle);
+    }
+    for (const assembly of assemblies) {
+        AddWheelPhysics(assembly.wheelMesh, 150, 0, 2.5, parts.wheelRadius);
+        FilterMeshCollisions(assembly.wheelMesh);
+    }
+
+    const driveMotors = [];
+    const steerMotors = [];
+    for (const assembly of assemblies) {
+        const motor = assembly.powered
+            ? CreatePoweredWheelJoint(assembly.axle, assembly.wheelMesh)
+            : CreateWheelJoint(assembly.axle, assembly.wheelMesh);
+        if (assembly.powered) driveMotors.push(motor);
+        const steer = AttachAxleToFrame(assembly.axle.physicsBody, carFrameBody, assembly.steered);
+        if (assembly.steered) steerMotors.push(steer);
+    }
+
+    const cockpit = buildCockpit(carFrame, parts);
+    createCarLights(carFrame, parts);
+    InitKeyboardControls(driveMotors[0], driveMotors[1], steerMotors[0], steerMotors[1], carFrame, vueApp, cockpit, parts);
+
+    return carFrame;
+}
+
+/** Parents the steering wheel and pedal to the body as animatable pivots. */
+function buildCockpit(carFrame, parts) {
+    const steeringPivot = new BABYLON.TransformNode('steeringPivot', scene);
+    steeringPivot.parent = carFrame;
+    steeringPivot.position = parts.steering.pivot;
+    steeringPivot.rotationQuaternion = parts.steering.orientation;
+    parts.steering.mesh.parent = steeringPivot;
+    parts.steering.mesh.position = BABYLON.Vector3.Zero();
+    parts.steering.mesh.rotationQuaternion = null;
+    parts.steering.mesh.rotation = BABYLON.Vector3.Zero();
+
+    const pedalPivot = new BABYLON.TransformNode('pedalPivot', scene);
+    pedalPivot.parent = carFrame;
+    pedalPivot.position = parts.pedal.pivot;
+    pedalPivot.rotationQuaternion = null;
+    parts.pedal.mesh.parent = pedalPivot;
+    parts.pedal.mesh.position = BABYLON.Vector3.Zero();
+    parts.pedal.mesh.rotation = BABYLON.Vector3.Zero();
+
+    return { steeringWheel: parts.steering.mesh, pedal: pedalPivot, pedalPress: 0 };
+}
+
+function createFallbackCar(vueApp) {
+    const carFrame = BABYLON.MeshBuilder.CreateBox('CarBody', { height: 1, width: 12, depth: 24, faceColors: debugColours });
+    carFrame.position = new BABYLON.Vector3(0, 1, 0);
+    carFrame.visibility = 0.5;
+    const carFrameBody = AddDynamicPhysics(carFrame, 2000, 0, 0, new BABYLON.Vector3(0, -2.5, 1));
     FilterMeshCollisions(carFrame);
 
     const flWheel = CreateWheel(new BABYLON.Vector3(5, 0, 8));
     const flAxle = CreateAxle(new BABYLON.Vector3(5, 0, 8));
     const frWheel = CreateWheel(new BABYLON.Vector3(-5, 0, 8));
     const frAxle = CreateAxle(new BABYLON.Vector3(-5, 0, 8));
-    const rlWheel = CreateWheel(new BABYLON.Vector3(5, 0, -8)); // Moved forward
-    const rlAxle = CreateAxle(new BABYLON.Vector3(5, 0, -8)); // Moved forward
-    const rrWheel = CreateWheel(new BABYLON.Vector3(-5, 0, -8)); // Moved forward
-    const rrAxle = CreateAxle(new BABYLON.Vector3(-5, 0, -8)); // Moved forward
+    const rlWheel = CreateWheel(new BABYLON.Vector3(5, 0, -8));
+    const rlAxle = CreateAxle(new BABYLON.Vector3(5, 0, -8));
+    const rrWheel = CreateWheel(new BABYLON.Vector3(-5, 0, -8));
+    const rrAxle = CreateAxle(new BABYLON.Vector3(-5, 0, -8));
 
     for (const mesh of [flAxle, frAxle, rlAxle, rrAxle]) {
         carFrame.addChild(mesh);
         AddAxlePhysics(mesh, 190, 0, 0);
         FilterMeshCollisions(mesh);
     }
-
     for (const mesh of [flWheel, frWheel, rlWheel, rrWheel]) {
-        AddWheelPhysics(mesh, 150, 0, 2.5);
+        AddWheelPhysics(mesh, 150, 0, 2.5, 2);
         FilterMeshCollisions(mesh);
     }
-
     const poweredWheelMotorA = CreatePoweredWheelJoint(flAxle, flWheel);
     const poweredWheelMotorB = CreatePoweredWheelJoint(frAxle, frWheel);
     CreateWheelJoint(rlAxle, rlWheel);
     CreateWheelJoint(rrAxle, rrWheel);
-
     const steerWheelA = AttachAxleToFrame(flAxle.physicsBody, carFrameBody, true);
     const steerWheelB = AttachAxleToFrame(frAxle.physicsBody, carFrameBody, true);
     AttachAxleToFrame(rlAxle.physicsBody, carFrameBody);
     AttachAxleToFrame(rrAxle.physicsBody, carFrameBody);
-
-    InitKeyboardControls(poweredWheelMotorA, poweredWheelMotorB, steerWheelA, steerWheelB, carFrame, vueApp);
-
-    // Add red taillights to the car
-    createTaillights(carFrame, scene);
-
-    // Add warm white headlights to the car
-    createHeadlights(carFrame, scene);
-
+    InitKeyboardControls(poweredWheelMotorA, poweredWheelMotorB, steerWheelA, steerWheelB, carFrame, vueApp, null, null);
     return carFrame;
 }
 
 function CreateAxle(position) {
-    const axleMesh = BABYLON.MeshBuilder.CreateBox("Axle", { height: 1, width: 2.5, depth: 1, faceColors: debugColours });
+    const axleMesh = BABYLON.MeshBuilder.CreateBox('Axle', { height: 1, width: 2.5, depth: 1, faceColors: debugColours });
     axleMesh.position = position;
+    axleMesh.isVisible = false;
     return axleMesh;
 }
 
 function CreateWheel(position) {
-    const faceUVforArrowTexture = [
-        new BABYLON.Vector4(0, 0, 0, 0),
-        new BABYLON.Vector4(0, 1, 1, 0),
-        new BABYLON.Vector4(0, 0, 0, 0),
-    ];
-
-    const wheelMesh = BABYLON.MeshBuilder.CreateCylinder("Wheel", { height: 1.6, diameter: 4, faceUV: faceUVforArrowTexture });
+    const wheelMesh = BABYLON.MeshBuilder.CreateCylinder('Wheel', { height: 1.6, diameter: 4 });
     wheelMesh.rotation = new BABYLON.Vector3(0, 0, Math.PI / 2);
     wheelMesh.bakeCurrentTransformIntoVertices();
     wheelMesh.position = position;
-    wheelMesh.material = tyreMaterial;
+    if (tyreMaterial) wheelMesh.material = tyreMaterial;
     return wheelMesh;
 }
 
@@ -936,7 +876,7 @@ function AttachSteering(joint) {
     return joint;
 }
 
-function InitKeyboardControls(motorWheelA, motorWheelB, steerWheelA, steerWheelB, carFrame, vueApp) {
+function InitKeyboardControls(motorWheelA, motorWheelB, steerWheelA, steerWheelB, carFrame, vueApp, cockpit, parts) {
     let forwardPressed = false;
     let backPressed = false;
     let leftPressed = false;
@@ -1064,19 +1004,19 @@ function InitKeyboardControls(motorWheelA, motorWheelB, steerWheelA, steerWheelB
 
         motorWheelA.setAxisMotorTarget(BABYLON.PhysicsConstraintAxis.ANGULAR_X, currentSpeed);
         motorWheelB.setAxisMotorTarget(BABYLON.PhysicsConstraintAxis.ANGULAR_X, currentSpeed);
+
+        // Animate the cockpit: turn the steering wheel and press the pedal in time with the controls
+        if (cockpit) {
+            cockpit.steeringWheel.rotation.z = -currentSteeringAngle * 4;
+            const pedalTarget = (isForward || isBackward || isBrake) ? 0.5 : 0;
+            cockpit.pedalPress += (pedalTarget - cockpit.pedalPress) * 0.25;
+            cockpit.pedal.rotation.x = cockpit.pedalPress;
+        }
     });
 }
 
-function InitTyreMaterial() {
-    tyreMaterial = new BABYLON.StandardMaterial("Tyre", scene);
-    const tireTexture = new BABYLON.Texture("game/textures/tire.png", scene);
-    tireTexture.wAng = -Math.PI / 2;
-    tireTexture.vScale = 0.4;
-    tyreMaterial.diffuseTexture = tireTexture;
-}
-
-function AddWheelPhysics(mesh, mass, bounce, friction) {
-    const physicsShape = new BABYLON.PhysicsShapeCylinder(new BABYLON.Vector3(-0.8, 0, 0), new BABYLON.Vector3(0.8, 0, 0), 2, scene);
+function AddWheelPhysics(mesh, mass, bounce, friction, radius = 2) {
+    const physicsShape = new BABYLON.PhysicsShapeCylinder(new BABYLON.Vector3(-0.8, 0, 0), new BABYLON.Vector3(0.8, 0, 0), radius, scene);
     const physicsBody = new BABYLON.PhysicsBody(mesh, BABYLON.PhysicsMotionType.DYNAMIC, false, scene);
     physicsBody.setMassProperties({ mass: mass });
     physicsShape.material = { restitution: bounce, friction: friction };
@@ -1133,72 +1073,180 @@ function CalculateWheelAngles(averageAngle) {
     return [innerAngle, outerAngle];
 }
 
+// ==== Ford Anglia model loading and part extraction ====
+const CAR_PART_NAMES = {
+    frontWheels: ['Cylinder023'],
+    rearWheels: ['Cylinder024'],
+    steering: ['Torus002'],
+    pedal: ['Cylinder029', 'Cube073'],
+    headlights: ['Plane021'],
+    taillights: ['Plane041', 'Plane042', 'Plane043']
+};
+const TARGET_HALF_TRACK = 5;
+
+function normalizeCarPartName(name) {
+    return name.replace(/\./g, '');
+}
+
+function classifyImportedMeshes(meshes) {
+    const lookup = new Map();
+    for (const [part, names] of Object.entries(CAR_PART_NAMES)) {
+        for (const name of names) {
+            lookup.set(name, part);
+        }
+    }
+    const buckets = { body: [], frontWheels: [], rearWheels: [], steering: [], pedal: [], headlights: [], taillights: [] };
+    for (const mesh of meshes) {
+        if (mesh.getClassName() !== 'Mesh' || mesh.getTotalVertices() === 0) {
+            continue;
+        }
+        buckets[lookup.get(normalizeCarPartName(mesh.name)) ?? 'body'].push(mesh);
+    }
+    return buckets;
+}
+
+/** Merges the meshes (baking their world transforms) and then bakes an extra matrix into the result. */
+function mergeBakedPart(meshes, bakeMatrix, name) {
+    const clones = meshes.map(mesh => mesh.clone(mesh.name + '_clone'));
+    const merged = BABYLON.Mesh.MergeMeshes(clones, true, true, undefined, false, false);
+    merged.name = name;
+    if (bakeMatrix) {
+        merged.bakeTransformIntoVertices(bakeMatrix);
+    }
+    merged.flipFaces(true); // undo the winding flip from Babylon's right-to-left-handed import
+    return merged;
+}
+
+/** World-space bounding box centre of a set of meshes. */
+function meshesWorldBox(meshes) {
+    let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
+    let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
+    for (const mesh of meshes) {
+        mesh.computeWorldMatrix(true);
+        const box = mesh.getBoundingInfo().boundingBox;
+        min = BABYLON.Vector3.Minimize(min, box.minimumWorld);
+        max = BABYLON.Vector3.Maximize(max, box.maximumWorld);
+    }
+    return { min, max, center: min.add(max).scale(0.5), size: max.subtract(min) };
+}
+
+/** Splits a wheel-pair mesh into its left (+X) and right (-X) wheel, recentred on the hub. */
+function splitWheelPairMesh(pairMesh, keepPositive, name) {
+    const pos = pairMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    const nor = pairMesh.getVerticesData(BABYLON.VertexBuffer.NormalKind);
+    const uv = pairMesh.getVerticesData(BABYLON.VertexBuffer.UVKind);
+    const idx = pairMesh.getIndices();
+    const positions = [], normals = [], uvs = [], indices = [];
+    const remap = new Map();
+    for (let t = 0; t < idx.length; t += 3) {
+        const tri = [idx[t], idx[t + 1], idx[t + 2]];
+        const centroidX = (pos[tri[0] * 3] + pos[tri[1] * 3] + pos[tri[2] * 3]) / 3;
+        if (keepPositive ? centroidX <= 0 : centroidX >= 0) {
+            continue;
+        }
+        for (const vi of tri) {
+            if (!remap.has(vi)) {
+                remap.set(vi, positions.length / 3);
+                positions.push(pos[vi * 3], pos[vi * 3 + 1], pos[vi * 3 + 2]);
+                if (nor) normals.push(nor[vi * 3], nor[vi * 3 + 1], nor[vi * 3 + 2]);
+                if (uv) uvs.push(uv[vi * 2], uv[vi * 2 + 1]);
+            }
+            indices.push(remap.get(vi));
+        }
+    }
+    const wheel = new BABYLON.Mesh(name, scene);
+    const data = new BABYLON.VertexData();
+    data.positions = positions;
+    if (nor) data.normals = normals;
+    if (uv) data.uvs = uvs;
+    data.indices = indices;
+    data.applyToMesh(wheel);
+    wheel.material = pairMesh.material;
+
+    wheel.computeWorldMatrix(true);
+    const box = wheel.getBoundingInfo().boundingBox;
+    const hub = box.minimumWorld.add(box.maximumWorld).scale(0.5);
+    const size = box.maximumWorld.subtract(box.minimumWorld);
+    wheel.bakeTransformIntoVertices(BABYLON.Matrix.Translation(-hub.x, -hub.y, -hub.z));
+    return { mesh: wheel, hub, radius: Math.max(size.y, size.z) / 2 };
+}
+
+function splitWheelPair(pairMeshes, bake, corners) {
+    const merged = mergeBakedPart(pairMeshes, bake, 'wheelPair');
+    const left = splitWheelPairMesh(merged, true, `Wheel_${corners[0]}`);
+    const right = splitWheelPairMesh(merged, false, `Wheel_${corners[1]}`);
+    merged.dispose();
+    return [{ corner: corners[0], ...left }, { corner: corners[1], ...right }];
+}
+
+/** A recentred pivot part (steering wheel / pedal) with a parent node carrying its orientation. */
+function buildPivotPart(meshes, bake, name, hingeTop) {
+    const captureMesh = meshes[0];
+    captureMesh.computeWorldMatrix(true);
+    const orientation = captureMesh.absoluteRotationQuaternion.clone();
+
+    const merged = mergeBakedPart(meshes, bake, name);
+    merged.computeWorldMatrix(true);
+    const box = merged.getBoundingInfo().boundingBox;
+    const min = box.minimumWorld, max = box.maximumWorld;
+    const pivot = hingeTop
+        ? new BABYLON.Vector3((min.x + max.x) / 2, max.y, (min.z + max.z) / 2)
+        : min.add(max).scale(0.5);
+
+    merged.bakeTransformIntoVertices(BABYLON.Matrix.Translation(-pivot.x, -pivot.y, -pivot.z));
+    // Undo the world orientation so the local part is axis-aligned; the pivot node re-applies the tilt
+    if (!hingeTop) {
+        merged.bakeTransformIntoVertices(BABYLON.Matrix.Compose(
+            BABYLON.Vector3.One(), BABYLON.Quaternion.Inverse(orientation), BABYLON.Vector3.Zero()
+        ));
+    }
+    return { mesh: merged, pivot, orientation };
+}
+
 async function importCustomCar() {
     try {
-        console.log("🚗 Loading custom car model...");
-
-        // Import your custom car.glb model
-        const importResult = await BABYLON.SceneLoader.ImportMeshAsync("", "game/models/", "car.glb", scene);
-
-        console.log("📦 Car model loaded successfully:", importResult);
-
-        // Get the root node of the imported model
-        const importRoot = importResult.meshes[0];
-
-        if (importRoot) {
-            // Scale up the car model even more to extend over the wheels
-            importRoot.scaling = new BABYLON.Vector3(14, 14, 14); // Larger scale for better proportions
-
-            // Rotate the car by 90 degrees around Y-axis
-            if (importRoot.rotationQuaternion) {
-                importRoot.rotationQuaternion = BABYLON.Quaternion.Identity();
-            }
-            importRoot.rotation = new BABYLON.Vector3(0, Math.PI / 2, 0); // 90° rotation
-
-            // Position the car higher above the wheels
-            importRoot.position = new BABYLON.Vector3(0, 2.3, 0); // Raised position
-
-            // Ensure position is properly accessible for camera
-            if (!importRoot.position) {
-                importRoot.position = new BABYLON.Vector3(0, 2, 0);
-            }
-
-            // Bake transformations into vertices for better performance
-            importRoot.bakeCurrentTransformIntoVertices();
-
-            // Find all meshes that should be merged into the car body
-            const meshesToMerge = importResult.meshes.filter(mesh =>
-                mesh.getClassName() === "Mesh" && mesh !== importRoot
-            );
-
-            // Merge all car body meshes into one
-            let carBody;
-            if (meshesToMerge.length > 0) {
-                carBody = BABYLON.Mesh.MergeMeshes(meshesToMerge, true, true, undefined, false, true);
-                carBody.name = "CarBody";
-            } else {
-                // If no meshes to merge, use the root as car body
-                importRoot.name = "CarBody";
-                carBody = importRoot;
-            }
-
-            console.log("✅ Car body created:", carBody.name);
-
-            // Ensure position is accessible for camera targeting
-            if (!carBody.position) {
-                carBody.position = new BABYLON.Vector3(0, 0, 0);
-            }
-
-            return carBody;
-
-        } else {
-            console.error("❌ No root mesh found in car model");
-            return null;
+        console.log('🚗 Loading Ford Anglia car model...');
+        const result = await BABYLON.SceneLoader.ImportMeshAsync('', 'game/models/', 'car.glb', scene);
+        const buckets = classifyImportedMeshes(result.meshes);
+        if (buckets.frontWheels.length === 0 || buckets.rearWheels.length === 0) {
+            throw new Error('Car model is missing its wheel meshes');
         }
 
+        // Measure the raw half-track by splitting the front pair, then scale so it matches the physics rig
+        const rawFront = splitWheelPair(buckets.frontWheels, null, ['frontLeft', 'frontRight']);
+        const rawHalfTrack = Math.abs(rawFront[0].hub.x);
+        rawFront.forEach(wheel => wheel.mesh.dispose());
+        const scale = TARGET_HALF_TRACK / rawHalfTrack;
+
+        const front = meshesWorldBox(buckets.frontWheels).center;
+        const rear = meshesWorldBox(buckets.rearWheels).center;
+        const midZ = (front.z + rear.z) / 2;
+        const axleY = (front.y + rear.y) / 2;
+        const bake = BABYLON.Matrix.Translation(0, -axleY, -midZ).multiply(BABYLON.Matrix.Scaling(scale, scale, scale));
+
+        const wheels = [
+            ...splitWheelPair(buckets.frontWheels, bake, ['frontLeft', 'frontRight']),
+            ...splitWheelPair(buckets.rearWheels, bake, ['rearLeft', 'rearRight'])
+        ];
+        const body = mergeBakedPart(buckets.body, bake, 'CarBody');
+
+        const parts = {
+            body,
+            wheels,
+            wheelRadius: wheels[0].radius,
+            halfTrack: Math.abs(wheels[0].hub.x),
+            halfWheelbase: Math.abs(wheels[0].hub.z),
+            steering: buildPivotPart(buckets.steering, bake, 'SteeringWheel', false),
+            pedal: buildPivotPart(buckets.pedal, bake, 'Pedal', true),
+            headlights: mergeBakedPart(buckets.headlights, bake, 'Headlights'),
+            taillights: mergeBakedPart(buckets.taillights, bake, 'Taillights')
+        };
+        result.meshes.forEach(mesh => { if (mesh.getClassName() === 'Mesh') mesh.dispose(); });
+
+        console.log('✅ Ford Anglia prepared: body + 4 wheels + steering wheel + pedal + lights');
+        return parts;
     } catch (error) {
-        console.error("❌ Error loading car model:", error);
-        console.log("💡 Make sure the car.glb file exists in game/models/ folder");
+        console.error('❌ Error loading car model:', error);
         return null;
     }
 }

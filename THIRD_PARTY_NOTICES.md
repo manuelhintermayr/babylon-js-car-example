@@ -29,17 +29,16 @@ authoritative terms:
   physics engine is provided through Babylon.js under its own terms.
 - **[Vue.js](https://vuejs.org/)** — MIT
 
-## 4. 3D models and textures
+## 4. 3D model
 
-The following assets were generated with third-party AI tools, as documented in
-the README. Their provenance is recorded here exactly as documented; no license
-terms have been invented. Anyone wishing to reuse these assets should check the
-terms of the respective tool/service.
+The 3D car model is **hand-made** and is not covered by the code license above.
+It was modelled by Manuel Hintermayr for his personal **manuelhintermayr-portfolio**
+project and is reused here with attribution. If the model is used elsewhere, please
+credit that project as the source.
 
-| Asset | Origin (as documented in the README) |
+| Asset | Origin |
 |---|---|
-| Car 3D model (`game/models/car.glb`) | Created with ImgTo3D.ai (<https://www.imgto3d.ai/>) |
-| Car textures | Created with Meshy.ai (<https://www.meshy.ai/>) |
+| Car 3D model (`game/models/car.glb`) | Hand-made low-poly Ford Anglia by Manuel Hintermayr, created for the manuelhintermayr-portfolio project; Draco-compressed for the web |
 
 ## 5. Trademarks
 

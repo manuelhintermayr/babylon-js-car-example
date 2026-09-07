@@ -40,7 +40,7 @@ This project showcases **advanced game development** using:
 
 ### 🏁 Core Gameplay
 - **Realistic car physics** powered by Havok Physics Engine (based on [Babylon.js Playground demo](https://www.babylonjs-playground.com/#ANV5OM#139))
-- **Custom 3D car model** support with GLB/GLTF loading (model created with [ImgTo3D.ai](https://www.imgto3d.ai/), textures with [Meshy.ai](https://www.meshy.ai/))
+- **Hand-made low-poly car model** (Ford Anglia) loaded from a Draco-compressed GLB; its wheels, headlights, taillights, steering wheel and pedals are used directly by the game (the steering wheel turns and the pedal presses while you drive)
 - **ConvexHull physics** for complex 3D model collision detection
 - **Dynamic camera system** with mouse controls and smooth following (based on [Babylon.js mouse control demo](https://playground.babylonjs.com/#FMQX86#1))
 - **Jump mechanics** with Space key for aerial stunts
@@ -133,10 +133,7 @@ This project showcases **advanced game development** using:
     ├── 📄 babylon-game.js    # Complete Babylon.js game with physics & 3D models
     ├── 📄 fps-meter.js       # Frames per second, averaged over short windows
     ├── 📁 models/            # 3D Model Assets
-    │   └── 📄 car.glb        # Custom 3D car model (GLB format)
-    └── 📁 textures/          # Game texture assets
-        ├── 📄 tire.png       # Car tire texture
-        └── 📄 up.png         # Track/environment textures
+    │   └── 📄 car.glb        # Hand-made Ford Anglia model (GLB, Draco-compressed)
 ```
 
 ## 🛠️ Advanced Technology Stack
@@ -255,7 +252,7 @@ The project uses **ES6 modules** which require a web server (not `file://` proto
 
 ## 📄 License
 
-The original source code of this project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. The MIT License covers this repository's own source code; the third-party example code it builds on (Babylon.js Playground demos) and the AI-generated 3D model and textures it uses are documented separately in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The original source code of this project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. The MIT License covers this repository's own source code; the third-party example code it builds on (Babylon.js Playground demos) and the hand-made 3D car model it uses are documented separately in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## 🙏 Acknowledgments
 
@@ -263,9 +260,7 @@ The original source code of this project is licensed under the MIT License - see
 - **Vue.js Team** - For the reactive framework
 - **Havok Physics** - For realistic physics simulation
 - **Modern Web Standards** - For enabling advanced browser capabilities
-- **AI Tools** - For 3D model and texture creation:
-  - Car 3D model created with [ImgTo3D.ai](https://www.imgto3d.ai/)
-  - Car textures created with [Meshy.ai](https://www.meshy.ai/)
+- **3D car model** - the hand-made low-poly Ford Anglia by Manuel Hintermayr, created for the manuelhintermayr-portfolio project and reused here with attribution
 - **Babylon.js Community** - For providing excellent demos and examples:
   - Car physics implementation based on [Babylon.js Playground #ANV5OM#139](https://www.babylonjs-playground.com/#ANV5OM#139)
   - Mouse camera controls based on [Babylon.js Playground #FMQX86#1](https://playground.babylonjs.com/#FMQX86#1)
